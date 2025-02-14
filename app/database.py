@@ -1,10 +1,14 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./sql_app.db"
+from .config import get_settings
+
+settings = get_settings()
 
 engine = create_async_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}, echo=True
+    settings.SQLALCHEMY_DATABASE_URL,
+    echo=True,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(

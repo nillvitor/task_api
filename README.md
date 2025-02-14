@@ -7,10 +7,30 @@ A RESTful API built with FastAPI for managing tasks with user authentication and
 
 - User authentication with JWT tokens
 - CRUD operations for tasks
-- SQLite database with SQLAlchemy ORM
+- PostgreSQL database with SQLAlchemy ORM
 - Password hashing with bcrypt
 - Token-based authentication
 - Pagination support for task listing
+
+## API Configuration
+
+The API uses the following configuration settings:
+
+- `API_V1_STR`: "/api/v1" (API version prefix)
+- `PROJECT_NAME`: "Task Management API"
+- `SECRET_KEY`: JWT secret key (set in .env)
+- `ALGORITHM`: "HS256" (JWT encryption algorithm)
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: 30 (JWT token expiration time)
+
+## Database Configuration
+
+PostgreSQL connection settings (configured via .env):
+
+- `POSTGRES_USER`: Database username
+- `POSTGRES_PASSWORD`: Database password
+- `POSTGRES_HOST`: Database host
+- `POSTGRES_PORT`: Database port
+- `POSTGRES_DB`: Database name
 
 ## Requirements
 
@@ -153,10 +173,30 @@ A RESTful API built with FastAPI for managing tasks with user authentication and
 
 - User authentication with JWT tokens
 - CRUD operations for tasks
-- SQLite database with SQLAlchemy ORM
+- PostgreSQL database with SQLAlchemy ORM
 - Password hashing with bcrypt
 - Token-based authentication
 - Pagination support for task listing
+
+## API Configuration
+
+The API uses the following configuration settings:
+
+- `API_V1_STR`: "/api/v1" (API version prefix)
+- `PROJECT_NAME`: "Task Management API"
+- `SECRET_KEY`: JWT secret key (set in .env)
+- `ALGORITHM`: "HS256" (JWT encryption algorithm)
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: 30 (JWT token expiration time)
+
+## Database Configuration
+
+PostgreSQL connection settings (configured via .env):
+
+- `POSTGRES_USER`: Database username
+- `POSTGRES_PASSWORD`: Database password
+- `POSTGRES_HOST`: Database host
+- `POSTGRES_PORT`: Database port
+- `POSTGRES_DB`: Database name
 
 ## Requirements
 
