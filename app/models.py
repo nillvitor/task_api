@@ -1,11 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-from .database import Base
 
-Base = declarative_base()
+from .database import Base
 
 
 class Task(Base):

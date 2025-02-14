@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
 from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+
 from . import crud, models, schemas
 from .database import SessionLocal, engine
-from datetime import timedelta
 
 models.Base.metadata.create_all(bind=engine)
 
