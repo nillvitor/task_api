@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from jose import jwt
 from passlib.context import CryptContext
+from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -12,52 +13,57 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
-def get_task(db: Session, task_id: int):
-    return db.query(models.Task).filter(models.Task.id == task_id).first()
+async def get_task(db: Session, task_id: int):
+    result = await db.execute(select(models.Task).filter(models.Task.id == task_id))
+    return result.scalar_one_or_none()
 
 
-def get_tasks(db: Session, skip: int = 0, limit: int = 10):
-    return db.query(models.Task).offset(skip).limit(limit).all()
+async def get_tasks(db: Session, skip: int = 0, limit: int = 10):
+    result = await db.execute(select(models.Task).offset(skip).limit(limit))
+    return result.scalars().all()
 
 
-def create_task(db: Session, task: schemas.TaskCreate, user_id: int):
+async def create_task(db: Session, task: schemas.TaskCreate, user_id: int):
     db_task = models.Task(**task.dict(), owner_id=user_id)
     db.add(db_task)
-    db.commit()
-    db.refresh(db_task)
+    await db.commit()
+    await db.refresh(db_task)
     return db_task
 
 
-def update_task(db: Session, task_id: int, task: schemas.TaskUpdate):
-    db_task = get_task(db, task_id)
+async def update_task(db: Session, task_id: int, task: schemas.TaskUpdate):
+    db_task = await get_task(db, task_id)
     if db_task is None:
         return None
     for key, value in task.dict().items():
         setattr(db_task, key, value)
-    db.commit()
-    db.refresh(db_task)
+    await db.commit()
+    await db.refresh(db_task)
     return db_task
 
 
-def delete_task(db: Session, task_id: int):
-    db_task = get_task(db, task_id)
+async def delete_task(db: Session, task_id: int):
+    db_task = await get_task(db, task_id)
     if db_task is None:
         return None
-    db.delete(db_task)
-    db.commit()
+    await db.delete(db_task)
+    await db.commit()
     return db_task
 
 
-def get_user(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+async def get_user(db: Session, username: str):
+    result = await db.execute(
+        select(models.User).filter(models.User.username == username)
+    )
+    return result.scalar_one_or_none()
 
 
-def create_user(db: Session, user: schemas.UserCreate):
+async def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = pwd_context.hash(user.password)
     db_user = models.User(username=user.username, hashed_password=hashed_password)
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user
 
 
@@ -65,8 +71,8 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def authenticate_user(db: Session, username: str, password: str):
-    user = get_user(db, username)
+async def authenticate_user(db: Session, username: str, password: str):
+    user = await get_user(db, username)
     if not user or not verify_password(password, user.hashed_password):
         return False
     return user
