@@ -1,7 +1,7 @@
 
 # Task Management API
 
-A RESTful API built with FastAPI for managing tasks with user authentication and SQLite database.
+A RESTful API built with FastAPI for managing tasks with user authentication and PostgreSQL database.
 
 ## Features
 
@@ -11,6 +11,7 @@ A RESTful API built with FastAPI for managing tasks with user authentication and
 - Password hashing with bcrypt
 - Token-based authentication
 - Pagination support for task listing
+- Docker support for easy deployment
 
 ## API Configuration
 
@@ -34,6 +35,7 @@ PostgreSQL connection settings (configured via .env):
 
 ## Requirements
 
+### Local Development
 - Python 3.12+
 - FastAPI
 - SQLAlchemy
@@ -42,7 +44,41 @@ PostgreSQL connection settings (configured via .env):
 - uvicorn
 - Other dependencies listed in requirements.txt
 
-## Installation
+### Docker Deployment
+- Docker
+- Docker Compose
+
+## Installation and Setup
+
+### Using Docker (Recommended)
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd task_api
+```
+
+2. Create a `.env` file in the project root with the following variables:
+```
+# API Settings
+SECRET_KEY=your-secret-key-here
+
+# PostgreSQL Settings
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_DB=taskdb
+```
+
+3. Build and start the containers:
+```bash
+docker compose up --build
+```
+
+The API will be available at http://localhost:8000
+
+### Local Development
 
 1. Clone the repository:
 ```bash
@@ -61,16 +97,60 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Running the Application
+4. Create a `.env` file as described above, but use `localhost` for `POSTGRES_HOST`
 
-1. Start the server:
+5. Start the server:
 ```bash
 uvicorn app.main:app --reload
 ```
 
-2. Access the API documentation at:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+## Docker Compose Services
+
+The application consists of two services:
+
+- `api`: The FastAPI application
+  - Builds from the Dockerfile
+  - Exposes port 8000
+  - Depends on the database service
+
+- `db`: PostgreSQL database
+  - Uses the official postgres:latest image
+  - Persistent volume for data storage
+  - Includes health checks
+
+## Development with Docker
+
+### Useful Commands
+
+Start services:
+```bash
+docker compose up
+```
+
+Start services in detached mode:
+```bash
+docker compose up -d
+```
+
+View logs:
+```bash
+docker compose logs -f
+```
+
+Stop services:
+```bash
+docker compose down
+```
+
+Rebuild services:
+```bash
+docker compose up --build
+```
+
+Access PostgreSQL CLI:
+```bash
+docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
+```
 
 ## API Endpoints
 
