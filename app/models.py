@@ -15,6 +15,7 @@ class Task(Base):
     status = Column(String, default="pendente")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    owner = relationship("User", back_populates="tasks")
 
 
 class User(Base):
