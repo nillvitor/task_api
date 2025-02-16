@@ -328,11 +328,26 @@ go build -o task-cli
   ```
 - `list` - List all tasks
   ```bash
+  # Default format
   task-cli list
+
+  # With pagination
+  task-cli list -p 1 -l 20
+
+  # JSON output
+  task-cli list --json
+  # or
+  task-cli list -j
   ```
 - `get` - Get a specific task
   ```bash
+  # Default format
   task-cli get -i task_id
+
+  # JSON output
+  task-cli get -i task_id --json
+  # or
+  task-cli get -i task_id -j
   ```
 - `update` - Update an existing task
   ```bash

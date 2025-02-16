@@ -180,6 +180,12 @@ func listTasksCommand() *cli.Command {
                 Usage:   "Number of tasks per page",
                 Value:   10,
             },
+            &cli.BoolFlag{
+                Name:    "json",
+                Aliases: []string{"j"},
+                Usage:   "Output in JSON format",
+                Value:   false,
+            },
         },
         Action: func(c *cli.Context) error {
             cfg, err := config.GetConfig()
@@ -216,9 +222,17 @@ func listTasksCommand() *cli.Command {
                 return err
             }
 
-            for _, task := range tasks {
-                fmt.Printf("ID: %d\nTitle: %s\nDescription: %s\nStatus: %s\nCreated: %s\nUpdated: %s\n\n",
-                    task.ID, task.Title, task.Description, task.Status, task.CreatedAt, task.UpdatedAt)
+            if c.Bool("json") {
+                jsonOutput, err := json.MarshalIndent(tasks, "", "  ")
+                if err != nil {
+                    return err
+                }
+                fmt.Println(string(jsonOutput))
+            } else {
+                for _, task := range tasks {
+                    fmt.Printf("ID: %d\nTitle: %s\nDescription: %s\nStatus: %s\nCreated: %s\nUpdated: %s\n\n",
+                        task.ID, task.Title, task.Description, task.Status, task.CreatedAt, task.UpdatedAt)
+                }
             }
 
             return nil
@@ -236,6 +250,12 @@ func getTaskCommand() *cli.Command {
                 Aliases:  []string{"i"},
                 Usage:    "Task ID",
                 Required: true,
+            },
+            &cli.BoolFlag{
+                Name:    "json",
+                Aliases: []string{"j"},
+                Usage:   "Output in JSON format",
+                Value:   false,
             },
         },
         Action: func(c *cli.Context) error {
@@ -274,8 +294,16 @@ func getTaskCommand() *cli.Command {
                 return err
             }
 
-            fmt.Printf("ID: %d\nTitle: %s\nDescription: %s\nStatus: %s\nCreated: %s\nUpdated: %s\n",
-                task.ID, task.Title, task.Description, task.Status, task.CreatedAt, task.UpdatedAt)
+            if c.Bool("json") {
+                jsonOutput, err := json.MarshalIndent(task, "", "  ")
+                if err != nil {
+                    return err
+                }
+                fmt.Println(string(jsonOutput))
+            } else {
+                fmt.Printf("ID: %d\nTitle: %s\nDescription: %s\nStatus: %s\nCreated: %s\nUpdated: %s\n",
+                    task.ID, task.Title, task.Description, task.Status, task.CreatedAt, task.UpdatedAt)
+            }
             return nil
         },
     }
