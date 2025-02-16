@@ -13,6 +13,7 @@ A RESTful API built with FastAPI for managing tasks with user authentication, Po
 - Token-based authentication
 - Pagination support for task listing
 - Docker support for easy deployment
+- Command Line Interface (CLI) for easy interaction
 
 ## API Configuration
 
@@ -292,6 +293,61 @@ The project uses:
 - JWT for authentication
 - Redis for caching
 - Docker for containerization
+
+## Command Line Interface (CLI)
+
+The project includes a Go-based CLI tool for interacting with the API.
+
+### Building the CLI
+
+```bash
+cd cli
+go build -o task-cli
+```
+
+### CLI Commands
+
+#### Authentication
+- `login` - Authenticate with the API
+  ```bash
+  # Interactive (secure) mode - will prompt for password
+  task-cli login -u username
+
+  # Non-interactive mode
+  task-cli login -u username -p password
+  ```
+- `logout` - Clear stored authentication
+  ```bash
+  task-cli logout
+  ```
+
+#### Tasks
+- `create` - Create a new task
+  ```bash
+  task-cli create -t "Task Title" -d "Task Description" -s pending
+  ```
+- `list` - List all tasks
+  ```bash
+  task-cli list
+  ```
+- `get` - Get a specific task
+  ```bash
+  task-cli get -i task_id
+  ```
+- `update` - Update an existing task
+  ```bash
+  task-cli update -i task_id -t "New Title" -d "New Description" -s in_progress
+  ```
+- `delete` - Delete a task
+  ```bash
+  task-cli delete -i task_id
+  ```
+
+### CLI Configuration
+
+The CLI stores its configuration in `~/.task-cli.json` with the following settings:
+- `api_base_url`: API endpoint (default: "http://localhost:8000")
+- `access_token`: JWT token for authentication (managed automatically by login/logout commands)
 
 ## License
 
