@@ -24,7 +24,12 @@ async def get_tasks(db: Session, skip: int = 0, limit: int = 10):
 
 
 async def create_task(db: Session, task: schemas.TaskCreate, user_id: int):
-    db_task = models.Task(**task.dict(), owner_id=user_id)
+    db_task = models.Task(
+        title=task.title,
+        description=task.description,
+        status=task.status.value,
+        owner_id=user_id,
+    )
     db.add(db_task)
     await db.commit()
     await db.refresh(db_task)
@@ -35,8 +40,13 @@ async def update_task(db: Session, task_id: int, task: schemas.TaskUpdate):
     db_task = await get_task(db, task_id)
     if db_task is None:
         return None
-    for key, value in task.dict().items():
+
+    update_data = task.model_dump()
+    update_data["status"] = task.status.value
+
+    for key, value in update_data.items():
         setattr(db_task, key, value)
+
     await db.commit()
     await db.refresh(db_task)
     return db_task

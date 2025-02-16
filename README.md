@@ -231,6 +231,26 @@ curl -X 'POST' \
 }'
 ```
 
+## Task Status
+
+Tasks can have one of three states:
+- `pending`: Task is waiting to be started
+- `in_progress`: Task is currently being worked on
+- `done`: Task is completed
+
+Example of creating a task with status:
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/tasks' \
+  -H 'Authorization: Bearer <your-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "title": "Test Task",
+  "description": "Task description",
+  "status": "pending"
+}'
+```
+
 ## Database Schema
 
 ### Users Table
@@ -242,7 +262,7 @@ curl -X 'POST' \
 - id (Integer, Primary Key)
 - title (String)
 - description (String)
-- status (String)
+- status (String, one of: "pending", "in_progress", "done")
 - created_at (DateTime)
 - updated_at (DateTime)
 - owner_id (Integer, Foreign Key to users.id)
