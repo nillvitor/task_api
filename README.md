@@ -14,6 +14,7 @@ A RESTful API built with FastAPI for managing tasks with user authentication, Po
 - Pagination support for task listing
 - Docker support for easy deployment
 - Command Line Interface (CLI) for easy interaction
+- Type checking support with mypy
 
 ## API Configuration
 
@@ -49,7 +50,20 @@ The API uses the following configuration settings:
 - Passlib
 - uvicorn
 - Redis
+- Type stubs for development:
+  - types-python-jose
+  - types-passlib
+  - types-redis
 - Other dependencies listed in requirements.txt
+
+### Development Tools
+- mypy for static type checking
+- black for code formatting
+- isort for import sorting
+- flake8 for code linting
+- pytest for testing
+- pytest-asyncio for async testing support
+- pytest-cov for test coverage
 
 ### Docker Deployment
 - Docker
@@ -110,7 +124,11 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 3. Install dependencies:
 ```bash
+# For production dependencies only
 pip install -r requirements.txt
+
+# For development dependencies (includes testing and code quality tools)
+pip install -r requirements-dev.txt
 ```
 
 4. Create a `.env` file as described above, but use:
@@ -128,6 +146,38 @@ docker-compose up -d db redis
 6. Start the server:
 ```bash
 uvicorn app.main:app --reload
+```
+
+## Development Tools
+
+The project uses several development tools that can be installed via `requirements-dev.txt`:
+
+- mypy: Static type checking
+- black: Code formatting
+- isort: Import sorting
+- flake8: Code linting
+- pytest: Testing framework
+- pytest-asyncio: Async testing support
+- pytest-cov: Test coverage
+
+### Development Commands
+
+```bash
+# Format code
+black app/
+isort app/
+
+# Check types
+mypy app/
+
+# Lint code
+flake8 app/
+
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=app
 ```
 
 ## Docker Compose Services
@@ -293,6 +343,21 @@ The project uses:
 - JWT for authentication
 - Redis for caching
 - Docker for containerization
+- mypy for static type checking
+
+### Type Checking
+
+The project supports static type checking using mypy. To run type checking:
+
+```bash
+# Inside Docker container
+docker-compose exec api mypy app/
+
+# Or locally
+mypy app/
+```
+
+All code is type-annotated and verified with mypy to ensure type safety and catch potential type-related issues early in development.
 
 ## Command Line Interface (CLI)
 
