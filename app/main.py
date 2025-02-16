@@ -3,7 +3,11 @@ from datetime import timedelta
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
 from jose import JWTError, jwt
+from redis import asyncio as aioredis
 from sqlalchemy.orm import Session
 
 from . import crud, models, schemas
@@ -32,6 +36,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
+
+
+@app.on_event("startup")
+async def init_cache():
+    redis = aioredis.from_url(
+        settings.REDIS_URL, encoding="utf8", decode_responses=True
+    )
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
 
 async def get_db():
@@ -64,6 +76,7 @@ async def get_current_user(
 
 
 @app.get("/tasks", response_model=list[schemas.Task])
+@cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_tasks(
     skip: int = 0,
     limit: int = 10,
@@ -75,6 +88,7 @@ async def read_tasks(
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.Task)
+@cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_task(
     task_id: int,
     db: Session = Depends(get_db),

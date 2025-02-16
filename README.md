@@ -1,13 +1,14 @@
 
 # Task Management API
 
-A RESTful API built with FastAPI for managing tasks with user authentication and PostgreSQL database.
+A RESTful API built with FastAPI for managing tasks with user authentication, PostgreSQL database, and Redis caching.
 
 ## Features
 
 - User authentication with JWT tokens
 - CRUD operations for tasks
 - PostgreSQL database with SQLAlchemy ORM
+- Redis caching for improved performance
 - Password hashing with bcrypt
 - Token-based authentication
 - Pagination support for task listing
@@ -23,15 +24,19 @@ The API uses the following configuration settings:
 - `ALGORITHM`: "HS256" (JWT encryption algorithm)
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 30 (JWT token expiration time)
 
-## Database Configuration
+## Service Configuration
 
-PostgreSQL connection settings (configured via .env):
-
+### Database Configuration (PostgreSQL)
 - `POSTGRES_USER`: Database username
 - `POSTGRES_PASSWORD`: Database password
 - `POSTGRES_HOST`: Database host
-- `POSTGRES_PORT`: Database port
+- `POSTGRES_PORT`: Database port (default: 5432)
 - `POSTGRES_DB`: Database name
+
+### Cache Configuration (Redis)
+- `REDIS_HOST`: Redis host (default: redis)
+- `REDIS_PORT`: Redis port (default: 6379)
+- `CACHE_EXPIRE_IN_SECONDS`: Cache TTL in seconds (default: 60)
 
 ## Requirements
 
@@ -42,6 +47,7 @@ PostgreSQL connection settings (configured via .env):
 - Python-Jose
 - Passlib
 - uvicorn
+- Redis
 - Other dependencies listed in requirements.txt
 
 ### Docker Deployment
@@ -69,11 +75,20 @@ POSTGRES_PASSWORD=your_password
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 POSTGRES_DB=taskdb
+
+# Redis Settings (optional - defaults will be used if not set)
+REDIS_HOST=redis
+REDIS_PORT=6379
+CACHE_EXPIRE_IN_SECONDS=60
 ```
 
 3. Build and start the containers:
 ```bash
-docker compose up --build
+# Clean up any existing containers and volumes
+docker-compose down --volumes --remove-orphans
+
+# Build and start services
+docker-compose up -d --build
 ```
 
 The API will be available at http://localhost:8000
@@ -97,26 +112,42 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file as described above, but use `localhost` for `POSTGRES_HOST`
+4. Create a `.env` file as described above, but use:
+```
+POSTGRES_HOST=localhost
+REDIS_HOST=localhost
+```
 
-5. Start the server:
+5. Start the required services:
+```bash
+# Using Docker for PostgreSQL and Redis only
+docker-compose up -d db redis
+```
+
+6. Start the server:
 ```bash
 uvicorn app.main:app --reload
 ```
 
 ## Docker Compose Services
 
-The application consists of two services:
+The application consists of three services:
 
 - `api`: The FastAPI application
   - Builds from the Dockerfile
   - Exposes port 8000
-  - Depends on the database service
+  - Depends on database and cache services
 
 - `db`: PostgreSQL database
-  - Uses the official postgres:latest image
+  - Uses postgres:latest image
   - Persistent volume for data storage
   - Includes health checks
+
+- `redis`: Redis cache
+  - Uses redis:alpine image
+  - Persistent volume for data
+  - Includes health checks
+  - Improves API performance through caching
 
 ## Development with Docker
 
@@ -124,32 +155,33 @@ The application consists of two services:
 
 Start services:
 ```bash
-docker compose up
-```
-
-Start services in detached mode:
-```bash
-docker compose up -d
+docker-compose up -d
 ```
 
 View logs:
 ```bash
-docker compose logs -f
+docker-compose logs -f
 ```
 
 Stop services:
 ```bash
-docker compose down
+docker-compose down
 ```
 
-Rebuild services:
+Clean restart:
 ```bash
-docker compose up --build
+docker-compose down --volumes --remove-orphans
+docker-compose up -d --build
 ```
 
 Access PostgreSQL CLI:
 ```bash
-docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
+docker-compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
+```
+
+Access Redis CLI:
+```bash
+docker-compose exec redis redis-cli
 ```
 
 ## API Endpoints
@@ -159,8 +191,8 @@ docker compose exec db psql -U <POSTGRES_USER> -d <POSTGRES_DB>
 - `POST /users` - Create new user
 
 ### Tasks
-- `GET /tasks` - List all tasks (paginated)
-- `GET /tasks/{task_id}` - Get specific task
+- `GET /tasks` - List all tasks (paginated, cached)
+- `GET /tasks/{task_id}` - Get specific task (cached)
 - `POST /tasks` - Create new task
 - `PUT /tasks/{task_id}` - Update task
 - `DELETE /tasks/{task_id}` - Delete task
@@ -215,12 +247,21 @@ curl -X 'POST' \
 - updated_at (DateTime)
 - owner_id (Integer, Foreign Key to users.id)
 
+## Caching
+
+The API uses Redis for caching with the following features:
+- Task listing and individual task retrieval are cached
+- Default cache TTL: 60 seconds
+- Automatic cache invalidation on task updates/deletes
+- Configurable cache settings via environment variables
+
 ## Security
 
 - Passwords are hashed using bcrypt
 - Authentication uses JWT tokens
 - Token expiration set to 30 minutes
 - Protected endpoints require valid JWT token
+- CORS middleware configured for security
 
 ## Development
 
@@ -229,6 +270,8 @@ The project uses:
 - SQLAlchemy for ORM
 - Pydantic for data validation
 - JWT for authentication
+- Redis for caching
+- Docker for containerization
 
 ## License
 

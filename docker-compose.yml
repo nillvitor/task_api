@@ -7,11 +7,16 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - type: bind
+        source: .
+        target: /app
+        read_only: true
     env_file:
       - .env
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
@@ -19,7 +24,9 @@ services:
     image: postgres:latest
     container_name: task-api-db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql/data
     env_file:
       - .env
     healthcheck:
@@ -28,5 +35,21 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:alpine
+    container_name: task-api-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - type: volume
+        source: redis_data
+        target: /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres_data:
+  redis_data:
