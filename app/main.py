@@ -3,9 +3,9 @@ from datetime import timedelta
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi_cache import FastAPICache  # type: ignore
-from fastapi_cache.backends.redis import RedisBackend  # type: ignore
-from fastapi_cache.decorator import cache  # type: ignore
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
 from jose import JWTError, jwt
 from redis import asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,8 +13,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import crud, models, schemas
 from .config import settings
 from .database import engine, get_db
+from .telemetry import setup_telemetry
 
+# Create the FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
+
+# Setup OpenTelemetry and instrument FastAPI
+tracer_provider = setup_telemetry()
+tracer_provider.instrument_fastapi(
+    app
+)  # Instrument FastAPI before adding other middleware
 
 # CORS middleware configuration
 app.add_middleware(
@@ -41,6 +49,9 @@ async def startup() -> None:
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
+
+    # Instrument other components
+    tracer_provider.instrument_other(engine)
 
 
 async def get_current_user(

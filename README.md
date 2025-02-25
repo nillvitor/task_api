@@ -1,7 +1,7 @@
 
 # Task Management API
 
-A RESTful API built with FastAPI for managing tasks with user authentication, PostgreSQL database, and Redis caching.
+A RESTful API built with FastAPI for managing tasks with user authentication, PostgreSQL database, Redis caching, and OpenTelemetry observability.
 
 ## Features
 
@@ -15,6 +15,7 @@ A RESTful API built with FastAPI for managing tasks with user authentication, Po
 - Docker support for easy deployment
 - Command Line Interface (CLI) for easy interaction
 - Type checking support with mypy
+- OpenTelemetry integration with Jaeger for distributed tracing
 
 ## API Configuration
 
@@ -40,6 +41,10 @@ The API uses the following configuration settings:
 - `REDIS_PORT`: Redis port (default: 6379)
 - `CACHE_EXPIRE_IN_SECONDS`: Cache TTL in seconds (default: 60)
 
+### Telemetry Configuration
+- `OTLP_ENDPOINT`: OpenTelemetry collector endpoint (default: http://jaeger:4317)
+- `ENVIRONMENT`: Deployment environment (default: development)
+
 ## Requirements
 
 ### Local Development
@@ -50,11 +55,11 @@ The API uses the following configuration settings:
 - Passlib
 - uvicorn
 - Redis
+- OpenTelemetry SDK and instrumentations
 - Type stubs for development:
   - types-python-jose
   - types-passlib
   - types-redis
-- Other dependencies listed in requirements.txt
 
 ### Development Tools
 - mypy for static type checking
@@ -95,6 +100,10 @@ POSTGRES_DB=taskdb
 REDIS_HOST=redis
 REDIS_PORT=6379
 CACHE_EXPIRE_IN_SECONDS=60
+
+# OpenTelemetry Settings
+OTLP_ENDPOINT=http://jaeger:4317
+ENVIRONMENT=development
 ```
 
 3. Build and start the containers:
@@ -107,46 +116,36 @@ docker-compose up -d --build
 ```
 
 The API will be available at http://localhost:8000
+The Jaeger UI will be available at http://localhost:16686
 
-### Local Development
+## Observability
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd task_api
-```
+The application uses OpenTelemetry for distributed tracing, providing insights into:
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+- HTTP requests and responses
+- Database queries
+- Redis operations
+- Service dependencies
 
-3. Install dependencies:
-```bash
-# For production dependencies only
-pip install -r requirements.txt
+### Accessing Traces
 
-# For development dependencies (includes testing and code quality tools)
-pip install -r requirements-dev.txt
-```
+1. Open the Jaeger UI at http://localhost:16686
+2. Select "Task Management API" from the Service dropdown
+3. Click "Find Traces" to view recent traces
 
-4. Create a `.env` file as described above, but use:
-```
-POSTGRES_HOST=localhost
-REDIS_HOST=localhost
-```
+### Available Trace Information
 
-5. Start the required services:
-```bash
-# Using Docker for PostgreSQL and Redis only
-docker-compose up -d db redis
-```
+- HTTP request details (method, path, status code)
+- Database query execution time
+- Redis operations timing
+- Service dependencies and interactions
+- Error details when failures occur
 
-6. Start the server:
-```bash
-uvicorn app.main:app --reload
-```
+### Components Instrumented
+
+- FastAPI (HTTP requests/responses)
+- SQLAlchemy (database operations)
+- Redis (cache operations)
 
 ## Development Tools
 

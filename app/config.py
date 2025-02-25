@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # Cache Settings
     CACHE_EXPIRE_IN_SECONDS: int = 60
 
+    # OpenTelemetry Settings
+    ENVIRONMENT: str = "development"
+    OTLP_ENDPOINT: str = "http://jaeger:4317"
+
     @property
     def DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

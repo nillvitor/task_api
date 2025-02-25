@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: task-api-jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:16686"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build: .
     container_name: task-api
@@ -18,6 +33,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    environment:
+      - OTLP_ENDPOINT=http://jaeger:4317
+      - ENVIRONMENT=development
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   db:

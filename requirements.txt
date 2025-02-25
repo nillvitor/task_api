@@ -19,3 +19,11 @@ python-multipart>=0.0.20
 # Caching
 fastapi-cache2[redis]>=0.2.2
 redis<5.0.0
+
+# OpenTelemetry
+opentelemetry-api>=1.21.0
+opentelemetry-sdk>=1.21.0
+opentelemetry-instrumentation-fastapi>=0.42b0
+opentelemetry-instrumentation-sqlalchemy>=0.42b0
+opentelemetry-instrumentation-redis>=0.42b0
+opentelemetry-exporter-otlp>=1.21.0
