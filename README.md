@@ -373,6 +373,13 @@ The API uses Redis for caching with the following features:
 - Token expiration set to 30 minutes
 - Protected endpoints require valid JWT token
 - CORS middleware configured for security
+- Rate limiting to protect against abuse (all configurable via environment variables):
+  - Default rate limit: 60 requests per minute
+  - Login: 10 requests per minute
+  - User creation: 5 requests per minute
+  - Task creation: 30 requests per minute
+  - Task listing: 60 requests per minute
+  - Task retrieval: 120 requests per minute
 
 ## Development
 

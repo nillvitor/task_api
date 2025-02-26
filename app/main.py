@@ -12,14 +12,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from functools import wraps
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from . import crud, models, schemas
 from .config import settings
 from .database import engine, get_db
 from .telemetry import setup_telemetry
 
+# Create rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Create the FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
+
+# Add rate limiter to the app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Setup OpenTelemetry and instrument FastAPI
 tracer_provider = setup_telemetry()
@@ -176,8 +186,10 @@ def add_user_to_span(span, user):
 
 
 @app.get("/tasks", response_model=list[schemas.Task])
+@limiter.limit(settings.RATE_LIMIT_READ_TASKS)
 @traced_cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_tasks(
+    request: Request,
     skip: int = 0,
     limit: int = 10,
     db: AsyncSession = Depends(get_db),
@@ -194,9 +206,11 @@ async def read_tasks(
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.Task)
+@limiter.limit(settings.RATE_LIMIT_READ_TASK)
 @traced_cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_task(
     task_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
@@ -213,8 +227,10 @@ async def read_task(
 
 
 @app.post("/tasks", response_model=schemas.Task)
+@limiter.limit(settings.RATE_LIMIT_CREATE_TASK)
 async def create_task(
     task: schemas.TaskCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
@@ -228,9 +244,11 @@ async def create_task(
 
 
 @app.put("/tasks/{task_id}", response_model=schemas.Task)
+@limiter.limit(settings.RATE_LIMIT_DEFAULT)
 async def update_task(
     task_id: int,
     task: schemas.TaskUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
@@ -247,8 +265,10 @@ async def update_task(
 
 
 @app.delete("/tasks/{task_id}", response_model=schemas.Task)
+@limiter.limit(settings.RATE_LIMIT_DEFAULT)
 async def delete_task(
     task_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
@@ -265,8 +285,11 @@ async def delete_task(
 
 
 @app.post("/token", response_model=schemas.Token)
+@limiter.limit(settings.RATE_LIMIT_TOKEN)
 async def login_for_access_token(
-    db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     with tracer.start_as_current_span("login_for_access_token") as span:
         span.set_attribute("auth.username", form_data.username)
@@ -292,7 +315,10 @@ async def login_for_access_token(
 
 
 @app.post("/users", response_model=schemas.User)
-async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit(settings.RATE_LIMIT_CREATE_USER)
+async def create_user(
+    user: schemas.UserCreate, request: Request, db: AsyncSession = Depends(get_db)
+):
     with tracer.start_as_current_span("create_user") as span:
         span.set_attribute("new_user.username", user.username)
 

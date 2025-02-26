@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     # Cache Settings
     CACHE_EXPIRE_IN_SECONDS: int = 60
 
+    # Rate Limiting Settings
+    RATE_LIMIT_DEFAULT: str = "60/minute"
+    RATE_LIMIT_TOKEN: str = "10/minute"
+    RATE_LIMIT_CREATE_USER: str = "5/minute"
+    RATE_LIMIT_CREATE_TASK: str = "30/minute"
+    RATE_LIMIT_READ_TASKS: str = "60/minute"
+    RATE_LIMIT_READ_TASK: str = "120/minute"
+
     # OpenTelemetry Settings
     ENVIRONMENT: str = "development"
     OTLP_ENDPOINT: str = "http://jaeger:4317"
