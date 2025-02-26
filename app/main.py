@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import Depends, FastAPI, HTTPException, status, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_cache import FastAPICache
@@ -48,12 +48,7 @@ def traced_cache(expire=settings.CACHE_EXPIRE_IN_SECONDS):
         async def wrapper(*args, **kwargs):
             with tracer.start_as_current_span(f"cache_{func.__name__}") as span:
                 # Extract request info if available
-                request = None
                 current_user = None
-                for arg in args:
-                    if isinstance(arg, Request):
-                        request = arg
-                    # Try to find current_user in args
 
                 for key, value in kwargs.items():
                     if key == "current_user":
