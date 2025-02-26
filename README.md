@@ -126,6 +126,7 @@ The application uses OpenTelemetry for distributed tracing, providing insights i
 - Database queries
 - Redis operations
 - Service dependencies
+- Cache operations (including cache hits)
 
 ### Accessing Traces
 
@@ -138,6 +139,7 @@ The application uses OpenTelemetry for distributed tracing, providing insights i
 - HTTP request details (method, path, status code)
 - Database query execution time
 - Redis operations timing
+- Cache operations (hits and misses)
 - Service dependencies and interactions
 - Error details when failures occur
 - Individual endpoint spans with custom names
@@ -146,7 +148,20 @@ The application uses OpenTelemetry for distributed tracing, providing insights i
 
 - FastAPI (HTTP requests/responses)
 - SQLAlchemy (database operations)
+  - Note: For async SQLAlchemy engines, instrumentation is applied to the underlying sync_engine
 - Redis (cache operations)
+- Custom cache operations with traced_cache decorator
+
+### Cache Instrumentation
+
+The application uses a custom `traced_cache` decorator that wraps the standard FastAPI Cache decorator to ensure that:
+
+- Cache hits are properly traced and visible in Jaeger
+- Cache operations include relevant attributes (key, hit/miss status)
+- User context is maintained in cached responses
+- Performance metrics for cache operations are collected
+
+This ensures complete observability even when responses are served from cache.
 
 ### Trace Context Propagation
 

@@ -51,16 +51,24 @@ class TelemetryProvider:
         )
 
     def instrument_other(self, engine):
-        """Instrument other components after app startup"""
-        # Instrument SQLAlchemy using the sync engine
-        SQLAlchemyInstrumentor().instrument(
-            engine=engine.sync_engine,
-            service_name=settings.PROJECT_NAME,
-            tracer_provider=self.tracer_provider,
-        )
+        """Instrument other components like SQLAlchemy and Redis"""
+        # Instrument SQLAlchemy - use sync_engine for async engines
+        if hasattr(engine, "sync_engine"):
+            SQLAlchemyInstrumentor().instrument(
+                engine=engine.sync_engine,
+                tracer_provider=self.tracer_provider,
+            )
+        else:
+            # Fallback for synchronous engines
+            SQLAlchemyInstrumentor().instrument(
+                engine=engine,
+                tracer_provider=self.tracer_provider,
+            )
 
         # Instrument Redis
-        RedisInstrumentor().instrument(tracer_provider=self.tracer_provider)
+        RedisInstrumentor().instrument(
+            tracer_provider=self.tracer_provider,
+        )
 
 
 def setup_telemetry():

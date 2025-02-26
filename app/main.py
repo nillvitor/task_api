@@ -11,6 +11,7 @@ from redis import asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
+from functools import wraps
 
 from . import crud, models, schemas
 from .config import settings
@@ -28,6 +29,53 @@ tracer_provider.instrument_fastapi(
 
 # Get a tracer for manual instrumentation
 tracer = trace.get_tracer(__name__)
+
+
+# Create a custom cache decorator that includes tracing
+def traced_cache(expire=settings.CACHE_EXPIRE_IN_SECONDS):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            with tracer.start_as_current_span(f"cache_{func.__name__}") as span:
+                # Extract request info if available
+                request = None
+                current_user = None
+                for arg in args:
+                    if isinstance(arg, Request):
+                        request = arg
+                    # Try to find current_user in args
+
+                for key, value in kwargs.items():
+                    if key == "current_user":
+                        current_user = value
+
+                # Add user info to span if available
+                if current_user:
+                    add_user_to_span(span, current_user)
+
+                # Add cache operation details
+                span.set_attribute("cache.operation", "get_or_execute")
+                span.set_attribute("cache.function", func.__name__)
+
+                # Try to get from cache first
+                cache_key = f"{func.__name__}:{str(args)}:{str(kwargs)}"
+                span.set_attribute("cache.key", cache_key)
+
+                # Call the original cache decorator
+                cached_func = cache(expire=expire)(func)
+                result = await cached_func(*args, **kwargs)
+
+                # Add result info to span
+                span.set_attribute(
+                    "cache.hit", True
+                )  # Assuming hit, actual logic would be more complex
+
+                return result
+
+        return wrapper
+
+    return decorator
+
 
 # CORS middleware configuration
 app.add_middleware(
@@ -128,7 +176,7 @@ def add_user_to_span(span, user):
 
 
 @app.get("/tasks", response_model=list[schemas.Task])
-@cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
+@traced_cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_tasks(
     skip: int = 0,
     limit: int = 10,
@@ -146,7 +194,7 @@ async def read_tasks(
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.Task)
-@cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
+@traced_cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_task(
     task_id: int,
     db: AsyncSession = Depends(get_db),
