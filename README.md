@@ -140,12 +140,32 @@ The application uses OpenTelemetry for distributed tracing, providing insights i
 - Redis operations timing
 - Service dependencies and interactions
 - Error details when failures occur
+- Individual endpoint spans with custom names
 
 ### Components Instrumented
 
 - FastAPI (HTTP requests/responses)
 - SQLAlchemy (database operations)
 - Redis (cache operations)
+
+### Trace Context Propagation
+
+The application uses the W3C Trace Context standard for propagating trace context between services. This ensures that:
+
+- Distributed traces are properly connected
+- Context is maintained across service boundaries
+- Trace IDs are consistent throughout the request lifecycle
+
+### Manual Instrumentation
+
+In addition to automatic instrumentation, the application uses manual instrumentation for:
+
+- Endpoint handlers (with named spans for each operation)
+- Authentication flows
+- Database operations
+- Cache operations
+
+This provides more detailed and meaningful traces in the Jaeger UI.
 
 ## Development Tools
 
@@ -181,12 +201,12 @@ pytest --cov=app
 
 ## Docker Compose Services
 
-The application consists of three services:
+The application consists of four services:
 
 - `api`: The FastAPI application
   - Builds from the Dockerfile
   - Exposes port 8000
-  - Depends on database and cache services
+  - Depends on database, cache, and telemetry services
 
 - `db`: PostgreSQL database
   - Uses postgres:latest image
@@ -198,6 +218,12 @@ The application consists of three services:
   - Persistent volume for data
   - Includes health checks
   - Improves API performance through caching
+
+- `jaeger`: Jaeger tracing
+  - Uses jaegertracing/all-in-one image
+  - Collects and visualizes distributed traces
+  - Exposes UI on port 16686
+  - Receives traces via OTLP on port 4317
 
 ## Development with Docker
 
@@ -343,6 +369,7 @@ The project uses:
 - Redis for caching
 - Docker for containerization
 - mypy for static type checking
+- OpenTelemetry for distributed tracing
 
 ### Type Checking
 

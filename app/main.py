@@ -10,6 +10,7 @@ from jose import JWTError, jwt
 from redis import asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from . import crud, models, schemas
 from .config import settings
@@ -60,8 +61,39 @@ async def startup() -> None:
 
 @app.middleware("http")
 async def add_trace_headers(request: Request, call_next):
-    """Middleware to ensure trace context is properly propagated"""
+    """Middleware to ensure trace context is properly propagated and add user info to spans"""
+    current_span = trace.get_current_span()
+
+    # Try to extract user info from the token if present
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
+            username = payload.get("sub")
+            if username:
+                # Add username to the current span
+                current_span.set_attribute("user.username", username)
+        except JWTError:
+            # If token is invalid, we just don't add the user info
+            pass
+
+    # Add request path and method to span
+    current_span.set_attribute("http.route", request.url.path)
+    current_span.set_attribute("http.method", request.method)
+
+    # Continue with the request
     response = await call_next(request)
+
+    # Add response status to span
+    current_span.set_attribute("http.status_code", response.status_code)
+
+    # Set span status based on response
+    if response.status_code >= 400:
+        current_span.set_status(Status(StatusCode.ERROR))
+
     return response
 
 
@@ -88,6 +120,13 @@ async def get_current_user(
     return user
 
 
+def add_user_to_span(span, user):
+    """Helper function to add user information to a span"""
+    if user:
+        span.set_attribute("user.id", user.id)
+        span.set_attribute("user.username", user.username)
+
+
 @app.get("/tasks", response_model=list[schemas.Task])
 @cache(expire=settings.CACHE_EXPIRE_IN_SECONDS)
 async def read_tasks(
@@ -96,8 +135,13 @@ async def read_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    with tracer.start_as_current_span("read_tasks"):
+    with tracer.start_as_current_span("read_tasks") as span:
+        add_user_to_span(span, current_user)
+        span.set_attribute("tasks.skip", skip)
+        span.set_attribute("tasks.limit", limit)
+
         tasks = await crud.get_tasks(db, skip=skip, limit=limit)
+        span.set_attribute("tasks.count", len(tasks))
         return tasks
 
 
@@ -108,9 +152,14 @@ async def read_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    with tracer.start_as_current_span("read_task"):
+    with tracer.start_as_current_span("read_task") as span:
+        add_user_to_span(span, current_user)
+        span.set_attribute("task.id", task_id)
+
         task = await crud.get_task(db, task_id=task_id)
         if task is None:
+            span.set_status(Status(StatusCode.ERROR))
+            span.set_attribute("error.type", "TaskNotFound")
             raise HTTPException(status_code=404, detail="Task not found")
         return task
 
@@ -121,8 +170,13 @@ async def create_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    with tracer.start_as_current_span("create_task"):
-        return await crud.create_task(db, task=task, user_id=current_user.id)
+    with tracer.start_as_current_span("create_task") as span:
+        add_user_to_span(span, current_user)
+        span.set_attribute("task.title", task.title)
+
+        new_task = await crud.create_task(db, task=task, user_id=current_user.id)
+        span.set_attribute("task.id", new_task.id)
+        return new_task
 
 
 @app.put("/tasks/{task_id}", response_model=schemas.Task)
@@ -132,9 +186,14 @@ async def update_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    with tracer.start_as_current_span("update_task"):
+    with tracer.start_as_current_span("update_task") as span:
+        add_user_to_span(span, current_user)
+        span.set_attribute("task.id", task_id)
+
         updated_task = await crud.update_task(db, task_id=task_id, task=task)
         if updated_task is None:
+            span.set_status(Status(StatusCode.ERROR))
+            span.set_attribute("error.type", "TaskNotFound")
             raise HTTPException(status_code=404, detail="Task not found")
         return updated_task
 
@@ -145,9 +204,14 @@ async def delete_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    with tracer.start_as_current_span("delete_task"):
+    with tracer.start_as_current_span("delete_task") as span:
+        add_user_to_span(span, current_user)
+        span.set_attribute("task.id", task_id)
+
         deleted_task = await crud.delete_task(db, task_id=task_id)
         if deleted_task is None:
+            span.set_status(Status(StatusCode.ERROR))
+            span.set_attribute("error.type", "TaskNotFound")
             raise HTTPException(status_code=404, detail="Task not found")
         return deleted_task
 
@@ -156,14 +220,22 @@ async def delete_task(
 async def login_for_access_token(
     db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ):
-    with tracer.start_as_current_span("login_for_access_token"):
+    with tracer.start_as_current_span("login_for_access_token") as span:
+        span.set_attribute("auth.username", form_data.username)
+
         user = await crud.authenticate_user(db, form_data.username, form_data.password)
         if not user:
+            span.set_status(Status(StatusCode.ERROR))
+            span.set_attribute("error.type", "AuthenticationFailed")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        # Add user info to span after successful authentication
+        add_user_to_span(span, user)
+
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = crud.create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
@@ -173,8 +245,15 @@ async def login_for_access_token(
 
 @app.post("/users", response_model=schemas.User)
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
-    with tracer.start_as_current_span("create_user"):
+    with tracer.start_as_current_span("create_user") as span:
+        span.set_attribute("new_user.username", user.username)
+
         db_user = await crud.create_user(db=db, user=user)
         if db_user is None:
+            span.set_status(Status(StatusCode.ERROR))
+            span.set_attribute("error.type", "UserAlreadyExists")
             raise HTTPException(status_code=400, detail="Username already registered")
+
+        # Add new user info to span
+        span.set_attribute("new_user.id", db_user.id)
         return db_user
