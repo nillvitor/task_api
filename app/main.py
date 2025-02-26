@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_cache import FastAPICache
@@ -9,6 +9,7 @@ from fastapi_cache.decorator import cache
 from jose import JWTError, jwt
 from redis import asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
+from opentelemetry import trace
 
 from . import crud, models, schemas
 from .config import settings
@@ -23,6 +24,9 @@ tracer_provider = setup_telemetry()
 tracer_provider.instrument_fastapi(
     app
 )  # Instrument FastAPI before adding other middleware
+
+# Get a tracer for manual instrumentation
+tracer = trace.get_tracer(__name__)
 
 # CORS middleware configuration
 app.add_middleware(
@@ -52,6 +56,13 @@ async def startup() -> None:
 
     # Instrument other components
     tracer_provider.instrument_other(engine)
+
+
+@app.middleware("http")
+async def add_trace_headers(request: Request, call_next):
+    """Middleware to ensure trace context is properly propagated"""
+    response = await call_next(request)
+    return response
 
 
 async def get_current_user(
@@ -85,8 +96,9 @@ async def read_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    tasks = await crud.get_tasks(db, skip=skip, limit=limit)
-    return tasks
+    with tracer.start_as_current_span("read_tasks"):
+        tasks = await crud.get_tasks(db, skip=skip, limit=limit)
+        return tasks
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.Task)
@@ -96,10 +108,11 @@ async def read_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    task = await crud.get_task(db, task_id=task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    with tracer.start_as_current_span("read_task"):
+        task = await crud.get_task(db, task_id=task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return task
 
 
 @app.post("/tasks", response_model=schemas.Task)
@@ -108,7 +121,8 @@ async def create_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    return await crud.create_task(db, task=task, user_id=current_user.id)
+    with tracer.start_as_current_span("create_task"):
+        return await crud.create_task(db, task=task, user_id=current_user.id)
 
 
 @app.put("/tasks/{task_id}", response_model=schemas.Task)
@@ -118,10 +132,11 @@ async def update_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    updated_task = await crud.update_task(db, task_id=task_id, task=task)
-    if updated_task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return updated_task
+    with tracer.start_as_current_span("update_task"):
+        updated_task = await crud.update_task(db, task_id=task_id, task=task)
+        if updated_task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return updated_task
 
 
 @app.delete("/tasks/{task_id}", response_model=schemas.Task)
@@ -130,33 +145,36 @@ async def delete_task(
     db: AsyncSession = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user),
 ):
-    deleted_task = await crud.delete_task(db, task_id=task_id)
-    if deleted_task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return deleted_task
+    with tracer.start_as_current_span("delete_task"):
+        deleted_task = await crud.delete_task(db, task_id=task_id)
+        if deleted_task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return deleted_task
 
 
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(
     db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ):
-    user = await crud.authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    with tracer.start_as_current_span("login_for_access_token"):
+        user = await crud.authenticate_user(db, form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = crud.create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
         )
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = crud.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.post("/users", response_model=schemas.User)
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
-    db_user = await crud.create_user(db=db, user=user)
-    if db_user is None:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    return db_user
+    with tracer.start_as_current_span("create_user"):
+        db_user = await crud.create_user(db=db, user=user)
+        if db_user is None:
+            raise HTTPException(status_code=400, detail="Username already registered")
+        return db_user
